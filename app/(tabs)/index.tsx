@@ -1,123 +1,132 @@
-import React, { useState, useEffect } from "react";
-import { Text, View, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, StyleSheet, Dimensions, Text } from "react-native";
+import Svg, { Circle, ClipPath, Defs } from "react-native-svg";
 import { LightSensor } from "expo-sensors";
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  withTiming,
+} from "react-native-reanimated";
 
-export default function App() {
-  const [lightLevel, setLightLevel] = useState<number | null>(null);
-  const [musicType, setMusicType] = useState<string>("");
-  const [backgroundColor, setBackgroundColor] = useState<string>("#1c1c1c");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+const { width, height } = Dimensions.get("window");
 
-  const musicLinks = {
-    calm: "https://www.youtube.com/watch?v=5qap5aO4i9A", // Lo-fi beats
-    normal: "https://www.youtube.com/watch?v=JGwWNGJdvx8", // Ed Sheeran
-    upbeat: "https://www.youtube.com/watch?v=fRh_vgS2dFE", // Justin Bieber
-  };
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-  const getBackgroundColor = (illuminance: number): string => {
-    if (illuminance <= 10) return "#4CAF50"; // Escuro
-    if (illuminance > 10 && illuminance <= 50) return "#FFC107"; // Verde
-    return "#FF0000"; // Amarelo
-  };
+export default function MoonPhasesWithInvertedLogic() {
+  const [lightLevel, setLightLevel] = useState(0);
+  const shadowOffset = useSharedValue(0);
 
   useEffect(() => {
-    let subscription;
+    let subscription: { remove: any; };
 
     if (LightSensor) {
-      // Ativando o sensor de luz
       subscription = LightSensor.addListener((data) => {
         setLightLevel(data.illuminance);
-        setBackgroundColor(getBackgroundColor(data.illuminance));
       });
     } else {
-      // Sensor não disponível
-      setErrorMessage("Sensor de luz não é suportado nesta plataforma.");
+      console.warn("LightSensor não é suportado nesta plataforma.");
     }
 
     return () => {
-      if (subscription) {
-        subscription.remove();
-      }
+      if (subscription) subscription.remove();
     };
   }, []);
 
   useEffect(() => {
-    // Atualiza o tipo de música com base na luz
-    if (lightLevel !== null) {
-      if (lightLevel <= 10) {
-        setMusicType("Calma");
-      } else if (lightLevel > 10 && lightLevel <= 50) {
-        setMusicType("Normal");
-      } else {
-        setMusicType("Agitada");
-      }
+    let normalizedLight = Math.min(1, Math.max(0, lightLevel / 100));
+
+    if (lightLevel <= 10) {
+      // LUA TOTALMENTE ESCURA
+      shadowOffset.value = withTiming(0, { duration: 500 });
+    } else if (lightLevel >= 100) {
+      // LUA CHEIA (SEM SOMBRA)
+      shadowOffset.value = withTiming(100, { duration: 500 });
+    } else {
+      // FASES INTERMEDIÁRIAS
+      shadowOffset.value = withTiming(normalizedLight * 100, { duration: 500 });
     }
   }, [lightLevel]);
 
-  if (errorMessage) {
-    return (
-      <View style={[styles.container, { backgroundColor }]}>
-        <Text style={styles.error}>{errorMessage}</Text>
-      </View>
-    );
-  }
+  const animatedProps = useAnimatedProps(() => ({
+    cx: width / 2 + shadowOffset.value,
+    opacity: lightLevel <= 10 ? 1 : lightLevel >= 100 ? 0 : 1, // Oculta sombra quando for Lua Cheia
+  }));
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
-      <Text style={styles.title}>Sensor de Luz e Música</Text>
-      <Text style={styles.text}>
-        Nível de Luz: {lightLevel !== null ? lightLevel.toFixed(1) : "Carregando..."}
-      </Text>
-      <Text style={styles.text}>Tipo de Música: {musicType || "Carregando..."}</Text>
-      {musicType && (
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => {
-            const url = musicLinks[musicType.toLowerCase() as keyof typeof musicLinks];
-            if (url) {
-              window.open(url, "_blank");
-            }
-          }}
-        >
-          <Text style={styles.buttonText}>Ouvir no YouTube</Text>
-        </TouchableOpacity>
-      )}
+    <View style={styles.container}>
+      {/* Fundo estrelado */}
+      <Svg height={height} width={width} style={styles.background}>
+        {[...Array(50)].map((_, i) => (
+          <Circle
+            key={i}
+            cx={Math.random() * width}
+            cy={Math.random() * height}
+            r={Math.random() * 2}
+            fill="white"
+            opacity={Math.random()}
+          />
+        ))}
+      </Svg>
+
+      {/* Lua e Sombra */}
+      <Svg height={height} width={width} style={styles.svg}>
+        <Defs>
+          {/* Máscara da Lua */}
+          <ClipPath id="moonClip">
+            <Circle cx={width / 2} cy={height / 3} r={80} />
+          </ClipPath>
+        </Defs>
+
+        {/* Lua cheia (branca) */}
+        <Circle cx={width / 2} cy={height / 3} r={80} fill="white" />
+
+        {/* Sombra dinâmica */}
+        <AnimatedCircle
+          animatedProps={animatedProps}
+          cy={height / 3}
+          r={80}
+          fill="black"
+          clipPath="url(#moonClip)"
+        />
+      </Svg>
+
+      {/* Informações de luz */}
+      <View style={styles.info}>
+        <Text style={styles.text}>Nível de luz: {lightLevel.toFixed(1)} lx</Text>
+        <Text style={styles.text}>Fase da Lua: {getMoonPhase(lightLevel)}</Text>
+      </View>
     </View>
   );
+}
+
+// Função auxiliar para determinar a fase da Lua
+function getMoonPhase(lightLevel: number): string {
+  if (lightLevel <= 10) return "Lua Nova";
+  if (lightLevel > 100 && lightLevel < 10) return "Crescente/Minguante";
+  return "Lua Cheia";
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "black",
     justifyContent: "center",
     alignItems: "center",
-    padding: 16,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 16,
+  background: {
+    position: "absolute",
+  },
+  svg: {
+    position: "absolute",
+  },
+  info: {
+    position: "absolute",
+    bottom: 50,
+    alignItems: "center",
   },
   text: {
+    color: "white",
     fontSize: 18,
-    color: "#fff",
-    marginBottom: 8,
-  },
-  error: {
-    fontSize: 18,
-    color: "red",
-    textAlign: "center",
-  },
-  button: {
-    backgroundColor: "#4CAF50",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
+    marginVertical: 5,
   },
 });
