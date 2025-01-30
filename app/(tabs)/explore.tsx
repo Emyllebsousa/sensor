@@ -80,7 +80,7 @@ export default function About() {
       <View style={styles.content}>
   <Text style={styles.title}>🌙 Sobre o Aplicativo</Text>
   <Text style={styles.text}>
-    O universo sempre nos fascinou com seus mistérios, e a lua, em especial, nos guia noite após noite com suas fases
+  O universo sempre nos fascinou com seus mistérios, e a lua, em especial, nos guia noite após noite com suas fases
     cíclicas. Este aplicativo traz essa magia para a palma da sua mão! 
   </Text>
   <Text style={styles.text}>

@@ -101,10 +101,14 @@ export default function MoonPhasesWithInvertedLogic() {
 
 // Função auxiliar para determinar a fase da Lua
 function getMoonPhase(lightLevel: number): string {
-  if (lightLevel <= 10) return "Lua Nova";
-  if (lightLevel > 100 && lightLevel < 10) return "Crescente/Minguante";
-  return "Lua Cheia";
+  if (lightLevel <= 10) return "Lua Nova 🌑";
+  if (lightLevel > 10 && lightLevel <= 40) return "Lua Crescente 🌒";
+  if (lightLevel > 40 && lightLevel <= 70) return "Quarto Crescente 🌓";
+  if (lightLevel > 70 && lightLevel <= 90) return "Lua Gibosa 🌔";
+  if (lightLevel >= 100) return "Lua Cheia 🌕";
+  return "Lua Minguante 🌘";
 }
+
 
 const styles = StyleSheet.create({
   container: {
